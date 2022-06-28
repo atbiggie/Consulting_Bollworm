@@ -25,6 +25,83 @@ paste0("The train data has ", nrow(train), " observations.")
 paste0("The test data has ", nrow(test), " observations.")
 ```
 
-## Tables & Plots
+### (Use Training Set ONLY)  
 
-### (Use Training Set ONLY)
+## Tables & Plots for Variety  
+
+#### Diameter  
+
+```{r}
+train %>% filter(diameter < 50 & diameter > 0) %>%
+  ggplot(aes(diameter, fill = factor(abscissed))) +
+  geom_boxplot() +
+  facet_wrap(~var) + 
+  labs(title = "Diameter of Cotton Boll From Each Variety",
+       x = "Diameter of Boll (mm)")
+```
+
+
+#### Sepal  
+
+```{r}
+train %>% filter(diameter < 50 & sepal > 0) %>%
+  ggplot(aes(sepal, var, fill = var)) +
+  coord_cartesian(xlim = c(0, 30)) +
+  geom_boxplot() + 
+  labs(title = "Diameter of Sepal Damage for Each Variety",
+       subtitle = "(When Present)",
+       x = "Sepal Damage Diameter (mm)",
+       y = "Variety")
+```
+
+#### Bract  
+
+```{r}
+train %>% filter(diameter < 50 & bract > 0) %>%
+  ggplot(aes(bract, var, fill = var)) +
+  coord_cartesian(xlim = c(0, 30)) +
+  geom_boxplot() + 
+  labs(title = "Diameter of Bract Damage for Each Variety",
+       subtitle = "(When Present)",
+       x = "Diameter of Bract Damage (mm)",
+       y = "Variety")
+```
+
+
+#### Boll Wall  
+
+```{r}
+train %>% filter(diameter < 50 & bollWall > 0) %>%
+  ggplot(aes(bollWall, var, fill = var)) +
+  coord_cartesian(xlim = c(0, 50)) +
+  geom_boxplot() + 
+  labs(title = "Diameter of Boll Wall Damage for Each Variety",
+       subtitle = "(When Present)",
+       x = "Diameter of Boll Wall Damage (mm)",
+       y = "Variety")
+```
+
+
+#### Total Ovary Hole Size  
+
+```{r}
+train %>% filter(diameter < 50 & ovaryHolesSum > 0) %>%
+  ggplot(aes(ovaryHolesSum, var, fill = var)) +
+  coord_cartesian(xlim = c(0, 30)) +
+  geom_boxplot() + 
+  labs(title = "Total Diameter of Ovary Hole Size for Each Variety",
+       subtitle = "(When Present)",
+       x = "Total Diameter of Ovary Hole Size (mm)",
+       y = "Variety")
+```
+
+
+
+
+
+
+
+
+
+
+
