@@ -1,0 +1,30 @@
+# Exploratory Data Analysis
+
+```{r include = FALSE}
+library(tidyverse)
+```
+
+### Load Dataset
+
+```{r}
+cleandata <- read.csv("../Data/cleandata.csv", header = TRUE)
+head(cleandata)
+```
+
+### Data Split
+
+```{r}
+#split data into test and train sets
+set.seed(1829)
+split <- sample(x = nrow(cleandata),size = nrow(cleandata)*.75)
+train <- cleandata[split, ]
+test <- cleandata[-split, ]
+
+#report number of obs in each
+paste0("The train data has ", nrow(train), " observations.")
+paste0("The test data has ", nrow(test), " observations.")
+```
+
+## Tables & Plots
+
+### (Use Training Set ONLY)

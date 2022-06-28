@@ -315,3 +315,9 @@ final %>% filter(diameter < 50 & ovaryHolesSum > 0) %>%
   ggplot(aes(ovaryHolesSum, as.factor(abscissed), fill = as.factor(abscissed))) +
   coord_cartesian(xlim = c(0, 20)) +
   geom_boxplot()
+
+## save clean dataset to folder  
+write.csv(final, "Data/cleandata.csv", row.names = FALSE)
+
+
+
