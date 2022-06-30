@@ -2,6 +2,7 @@
 
 ```{r include = FALSE}
 library(tidyverse)
+library(car)
 ```
 
 ### Load Dataset
@@ -94,6 +95,111 @@ train %>% filter(diameter < 50 & ovaryHolesSum > 0) %>%
        x = "Total Diameter of Ovary Hole Size (mm)",
        y = "Variety")
 ```
+
+
+
+#### Abcission Rate by Variety and Year  
+
+```{r}
+table <- train %>% group_by(var, year) %>% summarise(Abscised = sum(abscissed)/n(), Not_Abscised = (n() - sum(abscissed))/n())
+table %>% ggplot(aes(x = var, y = Abscised, fill = factor(year))) + 
+  geom_col(position = "dodge") + 
+  scale_y_continuous(n.breaks = 12) + 
+  labs(title = "Proportion of Abscission for Each Variety Across Years",
+       x = "Variety",
+       y = "Proportion of Cotton Bolls Abscised",
+       fill = "Year")
+```
+
+
+
+```{r}
+train %>% filter(diameter < 50 & diameter > 0) %>% ggplot(aes(x = diameter, fill = factor(abscissed))) + 
+  geom_histogram() + 
+  labs(title = "Distribution of Diameter for Abscised vs. Non-Abscised Cotton Bolls",
+       x = "Diameter",
+       y = "Count",
+       fill = "Abscised") + 
+  scale_fill_discrete(labels = c("No", "Yes"))
+
+
+train %>% filter(diameter < 50 & diameter > 0) %>% ggplot(aes(x = diameter, fill = factor(year))) + 
+  geom_histogram() + 
+  labs(title = "Distribution of Diameter for Each Year",
+       x = "Diameter",
+       y = "Count",
+       fill = "Year")
+```
+
+Why is the distribution bimodal for diameter in 2015/non-abscissed tissue?  
+
+
+
+#### Summary Statistics of Each Variable  
+
+```{r}
+a <- summary(train$diameter)
+b <- summary(train$sepal)
+c <- summary(train$bract)
+d <- summary(train$bollWall)
+e <- summary(train$ovaryHolesCount)
+f <- summary(train$ovaryHolesSum)
+
+list(diameter = a, 
+     sepal = b,
+     bract = c,
+     bollWall = d,
+     ovaryHolesCount = e,
+     ovaryHolesSum = f)
+```
+
+
+#### Correlation Between Variables (when > 0)   
+
+
+```{r}
+# look at observations > 0
+filtrain <- train %>% filter(diameter < 50 & diameter > 0 &
+                               sepal > 0 & 
+                               bract > 0 & 
+                               bollWall > 0 & 
+                               ovaryHolesCount > 0 & 
+                               ovaryHolesSum > 0)
+
+# correlation matrix
+correlation <- cor(filtrain[c(6:10,25)])
+correlation
+
+# colorful correlation plot
+corrplot(correlation, type="upper", order="hclust",
+         col=brewer.pal(n=8, name="RdYlBu"))
+```
+
+Correlations to note:  
+    * Correlation between SEPAL and BOLLWALL is 0.6828  
+    * Correlation between OVARYHOLESCOUNT and OVARYHOLESSUM is 0.653  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
