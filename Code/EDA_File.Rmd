@@ -26,6 +26,13 @@ paste0("The train data has ", nrow(train), " observations.")
 paste0("The test data has ", nrow(test), " observations.")
 ```
 
+```{r}
+write.csv(train, "../Data/train.csv", row.names = FALSE)
+write.csv(test, "../Data/test.csv", row.names = FALSE)
+```
+
+
+
 ### (Use Training Set ONLY)  
 
 ## Tables & Plots for Variety  

@@ -1,0 +1,21 @@
+# Modeling  
+
+```{r}
+library(tidyverse)
+library(caret)
+```
+
+
+Load training and test data sets.  
+
+```{r}
+train <- read.csv("../Data/train.csv", header = TRUE, sep = ",")
+test <- read.csv("../Data/test.csv", header = TRUE, sep = ",")
+```
+
+## Logistic Regression  
+
+```{r}
+fit1
+```
+
