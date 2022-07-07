@@ -3,14 +3,32 @@
 ```{r include = FALSE}
 library(tidyverse)
 library(car)
+library(stringr)
+library(corrplot)
+library(RColorBrewer)
 ```
 
 ### Load Dataset
 
 ```{r}
-cleandata <- read.csv("../Data/cleandata.csv", header = TRUE)
-head(cleandata)
+cleandata <- read.csv("../Data/cleandata.csv", header = TRUE) %>% 
+  mutate(ovaryHolesCount = ifelse(ovaryHolesSize == "0.0",
+                                  0,
+                                  str_count(ovaryHolesSize, ",") + 1))
+
+
 ```
+
+```{r}
+table(cleandata$year, cleandata$abscissed)
+```
+
+```{r}
+cleandata <- cleandata %>% drop_na()
+table(cleandata_nona$year, cleandata_nona$abscissed)
+```
+
+
 
 ### Data Split
 
@@ -183,8 +201,11 @@ corrplot(correlation, type="upper", order="hclust",
 ```
 
 Correlations to note:  
-    * Correlation between SEPAL and BOLLWALL is 0.6828  
-    * Correlation between OVARYHOLESCOUNT and OVARYHOLESSUM is 0.653  
+    * Correlation between SEPAL and BRACT is 0.55168  
+    
+Correlation should not be a problem when modeling.  
+
+
 
 
 
