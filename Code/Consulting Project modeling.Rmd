@@ -16,14 +16,16 @@ library(tidyverse)
 library(caret)
 library(rpart)
 library(rpart.plot)
+library(gbm)
+library(randomForest)
 ```
 
 Load training and test data sets.
 
 
 ```{r}
-train <- read.csv("train.csv", header = TRUE, sep = ",") %>% filter(diameter > 0)
-test <- read.csv("test.csv", header = TRUE, sep = ",") %>% filter(diameter > 0)
+train <- read.csv("../Data/train.csv", header = TRUE, sep = ",") %>% filter(diameter > 0)
+test <- read.csv("../Data/test.csv", header = TRUE, sep = ",") %>% filter(diameter > 0)
 ```
 
 
@@ -137,8 +139,8 @@ summary(glmFit3)
 ## Classification Tree  
 
 ```{r}
-train_reduced <- train[, c(3,4,6:10,12:17,25)]
-test_reduced <- test[, c(3,4,6:10,12:17,25)]
+train_reduced <- train[, c(3,6:10,12:17,25)]
+test_reduced <- test[, c(3,6:10,12:17,25)]
 ```
 
 
@@ -181,7 +183,7 @@ boosttreefit <- train(abscissed ~ .,
                        preProcess = c("center","scale"), verbose = FALSE, 
                 tuneGrid =  expand.grid(n.trees = 25, 
                               shrinkage = 0.1,
-                              interaction.depth = c(1:4),
+                              interaction.depth = c(12:20),
                               n.minobsinnode = 10)
                       )
 ```
@@ -203,7 +205,7 @@ boosttree
 fitrf <- train(abscissed~.,method = "rf",data = train_reduced,
              trControl = trcntrl, 
              metric = "Accuracy",
-             tuneGrid = data.frame(mtry = 1:5))
+             tuneGrid = data.frame(mtry = 5:10))
 ```
 
 
@@ -218,12 +220,23 @@ randomforest
 ```
 
 
+```{r}
+varImp(fitrf)
+
+plot.new()
+plot(varImp(fitrf))
+title(main = "Variable Importance Plot")
+```
+
+
+
+
 ## Table of Accuracies  
 
 ```{r}
 compare <- as.data.frame(cbind(logFit$overall[1], classtree$overall[1],
                                boosttree$overall[1],randomforest$overall[1]))
-compare <- rename(compare, LogisticRegression = V1, ClassificationTree = V2)
+compare <- rename(compare, LogisticRegression = V1, ClassificationTree = V2, BoostedTrees = V3, RandomForest = V4)
 compare
 ```
 
