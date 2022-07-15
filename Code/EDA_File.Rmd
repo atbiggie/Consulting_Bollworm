@@ -2,14 +2,33 @@
 
 ```{r include = FALSE}
 library(tidyverse)
+library(car)
+library(stringr)
+library(corrplot)
+library(RColorBrewer)
 ```
 
 ### Load Dataset
 
 ```{r}
-cleandata <- read.csv("../Data/cleandata.csv", header = TRUE)
-head(cleandata)
+cleandata <- read.csv("../Data/cleandata.csv", header = TRUE) %>% 
+  mutate(ovaryHolesCount = ifelse(ovaryHolesSize == "0.0",
+                                  0,
+                                  str_count(ovaryHolesSize, ",") + 1))
+
+
 ```
+
+```{r}
+table(cleandata$year, cleandata$abscissed)
+```
+
+```{r}
+cleandata <- cleandata %>% drop_na()
+table(cleandata_nona$year, cleandata_nona$abscissed)
+```
+
+
 
 ### Data Split
 
@@ -24,6 +43,13 @@ test <- cleandata[-split, ]
 paste0("The train data has ", nrow(train), " observations.")
 paste0("The test data has ", nrow(test), " observations.")
 ```
+
+```{r}
+write.csv(train, "../Data/train.csv", row.names = FALSE)
+write.csv(test, "../Data/test.csv", row.names = FALSE)
+```
+
+
 
 ### (Use Training Set ONLY)  
 
@@ -94,6 +120,113 @@ train %>% filter(diameter < 50 & ovaryHolesSum > 0) %>%
        x = "Total Diameter of Ovary Hole Size (mm)",
        y = "Variety")
 ```
+
+
+
+#### Abcission Rate by Variety and Year  
+
+```{r}
+table <- train %>% group_by(var, year) %>% summarise(Abscised = sum(abscissed)/n(), Not_Abscised = (n() - sum(abscissed))/n())
+table %>% ggplot(aes(x = var, y = Abscised, fill = factor(year))) + 
+  geom_col(position = "dodge") + 
+  scale_y_continuous(n.breaks = 12) + 
+  labs(title = "Proportion of Abscission for Each Variety Across Years",
+       x = "Variety",
+       y = "Proportion of Cotton Bolls Abscised",
+       fill = "Year")
+```
+
+
+
+```{r}
+train %>% filter(diameter < 50 & diameter > 0) %>% ggplot(aes(x = diameter, fill = factor(abscissed))) + 
+  geom_histogram() + 
+  labs(title = "Distribution of Diameter for Abscised vs. Non-Abscised Cotton Bolls",
+       x = "Diameter",
+       y = "Count",
+       fill = "Abscised") + 
+  scale_fill_discrete(labels = c("No", "Yes"))
+
+
+train %>% filter(diameter < 50 & diameter > 0) %>% ggplot(aes(x = diameter, fill = factor(year))) + 
+  geom_histogram() + 
+  labs(title = "Distribution of Diameter for Each Year",
+       x = "Diameter",
+       y = "Count",
+       fill = "Year")
+```
+
+Why is the distribution bimodal for diameter in 2015/non-abscissed tissue?  
+
+
+
+#### Summary Statistics of Each Variable  
+
+```{r}
+a <- summary(train$diameter)
+b <- summary(train$sepal)
+c <- summary(train$bract)
+d <- summary(train$bollWall)
+e <- summary(train$ovaryHolesCount)
+f <- summary(train$ovaryHolesSum)
+
+list(diameter = a, 
+     sepal = b,
+     bract = c,
+     bollWall = d,
+     ovaryHolesCount = e,
+     ovaryHolesSum = f)
+```
+
+
+#### Correlation Between Variables (when > 0)   
+
+
+```{r}
+# look at observations > 0
+filtrain <- train %>% filter(diameter < 50 & diameter > 0 &
+                               sepal > 0 & 
+                               bract > 0 & 
+                               bollWall > 0 & 
+                               ovaryHolesCount > 0 & 
+                               ovaryHolesSum > 0)
+
+# correlation matrix
+correlation <- cor(filtrain[c(6:10,25)])
+correlation
+
+# colorful correlation plot
+corrplot(correlation, type="upper", order="hclust",
+         col=brewer.pal(n=8, name="RdYlBu"))
+```
+
+Correlations to note:  
+    * Correlation between SEPAL and BRACT is 0.55168  
+    
+Correlation should not be a problem when modeling.  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
