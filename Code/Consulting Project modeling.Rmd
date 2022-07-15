@@ -1,0 +1,243 @@
+---
+title: "Consulting project modeling"
+author: "Brennan Clinch"
+date: "7/6/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+ Modeling  
+
+```{r include = FALSE}
+library(tidyverse)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(gbm)
+library(randomForest)
+```
+
+Load training and test data sets.
+
+
+```{r}
+train <- read.csv("../Data/train.csv", header = TRUE, sep = ",") %>% filter(diameter > 0)
+test <- read.csv("../Data/test.csv", header = TRUE, sep = ",") %>% filter(diameter > 0)
+```
+
+
+
+
+## Logistic Regression (without year in model)
+
+### Fit candidate models
+
+Model 1: all predictors, no interactions
+
+```{r}
+fit1 <- glm(abscissed ~ year + rep + RF + WRF + GLT + diameter + sepal + bract + bollWall + ovaryHolesCount + ovaryHolesSum,
+            data = train, family = "binomial")
+summary(fit1)
+```
+
+Model 2: Significant predictors from previous model
+
+```{r}
+fit2 <- glm(abscissed ~ year + WRF + GLT + diameter + bollWall + ovaryHolesCount + ovaryHolesSum,
+            data = train, family = "binomial")
+summary(fit2)
+```
+
+Model 3: Significant predictors, interactions, and squared terms
+
+```{r}
+fit3 <- glm(abscissed ~ year + rep + WRF + GLT + diameter + sepal + bract + bollWall + ovaryHolesCount + ovaryHolesSum + 
+              year:diameter + year:sepal + year:bollWall + year:ovaryHolesCount + year:ovaryHolesSum + 
+              WRF:diameter + 
+              GLT:diameter +  
+              diameter:bollWall + diameter:ovaryHolesSum + 
+              bract:ovaryHolesCount + 
+              I(rep^2) + I(diameter^2) + I(bract^2) + I(ovaryHolesSum^2),
+            data = train, family = "binomial")
+summary(fit3)
+```
+
+
+
+
+
+### Cross Validation  
+
+
+```{r warning = FALSE}
+train <- train %>% drop_na()
+test <- test %>% drop_na()
+train$abscissed <- as.factor(train$abscissed)
+glmFit1 <- train(abscissed ~ year + rep + RF + WRF + GLT + diameter + sepal + bract + bollWall + ovaryHolesCount + ovaryHolesSum, 
+                 data = train,
+                 method = "glm",
+                 family = "binomial",
+                 trControl = trainControl(method = "cv", number = 10))
+glmFit2 <- train(abscissed ~ year + WRF + GLT + diameter + bollWall + ovaryHolesCount + ovaryHolesSum, 
+                 data = train,
+                 method = "glm",
+                 family = "binomial",
+                 trControl = trainControl(method = "cv", number = 10))
+glmFit3 <- train(abscissed ~ year + rep + WRF + GLT + diameter + sepal + bract + bollWall + ovaryHolesCount + ovaryHolesSum + 
+              year:diameter + year:sepal + year:bollWall + year:ovaryHolesCount + year:ovaryHolesSum + 
+              WRF:diameter + 
+              GLT:diameter +  
+              diameter:bollWall + diameter:ovaryHolesSum + 
+              bract:ovaryHolesCount + 
+              I(rep^2) + I(diameter^2) + I(bract^2) + I(ovaryHolesSum^2), 
+                 data = train,
+                 method = "glm",
+                 family = "binomial",
+                 trControl = trainControl(method = "cv", number = 10))
+```
+
+```{r}
+data.frame(t(glmFit1$results), t(glmFit2$results), t(glmFit3$results)) %>% 
+  rename("Fit1" = "X1", "Fit2" = "X1.1", "Fit3" = "X1.2")
+```
+
+
+
+### Test Models
+
+Model 1:
+
+```{r}
+test$abscissed <- as.factor(test$abscissed)
+confusionMatrix(data = test$abscissed, reference = predict(glmFit1, newdata = test))
+```
+
+Model 2:
+
+```{r}
+confusionMatrix(data = test$abscissed, reference = predict(glmFit2, newdata = test))
+```
+
+Model 3:
+
+```{r}
+logFit <- confusionMatrix(data = test$abscissed, reference = predict(glmFit3, newdata = test))
+logFit
+```
+
+### Conclusion:
+
+Model 3 is the best performing model, so we will use it as our choice for Logistic Regression.  
+
+```{r}
+summary(glmFit3)
+```
+
+## Classification Tree  
+
+```{r}
+train_reduced <- train[, c(3,6:10,12:17,25)]
+test_reduced <- test[, c(3,6:10,12:17,25)]
+```
+
+
+```{r}
+trcntrl <- trainControl(method = "repeatedcv", number = 5, repeats = 3)
+classtree_fit <- train(abscissed ~ ., data = train_reduced,
+                       method = "rpart",
+                       trControl = trcntrl,
+                       tuneGrid = expand.grid(cp = seq(from = 0, to = 0.1, by = 0.001))
+                       )
+classtree_fit
+```
+
+
+### Test Model  
+
+```{r}
+classtree <- confusionMatrix(data = test_reduced$abscissed, reference = predict(classtree_fit, newdata = test_reduced))
+classtree
+```
+
+### Print Tree  
+
+```{r}
+rpart.plot(classtree_fit$finalModel)
+```
+
+
+Note that the labels indicate the proportion of the remaining data that contains the given response, followed by the percentage of data remaining from the overall data set. For example, at the split "bract < 0.75", the proportion of the data that has not abscised is 0.37. At this point in the tree, we are working with 39% of the data.  
+
+
+
+## Boosted Trees  
+```{r}
+trcntrl <- trainControl(method = "repeatedcv", number = 5, repeats = 3)
+boosttreefit <- train(abscissed ~ .,
+                      data = train_reduced, method = "gbm",
+                      trControl = trcntrl,
+                      metric = "Accuracy",
+                       preProcess = c("center","scale"), verbose = FALSE, 
+                tuneGrid =  expand.grid(n.trees = 25, 
+                              shrinkage = 0.1,
+                              interaction.depth = c(12:20),
+                              n.minobsinnode = 10)
+                      )
+```
+
+```{r}
+boosttreefit
+```
+
+### Test Model for Boosted Tree
+
+```{r}
+boosttree <- confusionMatrix(data = test_reduced$abscissed, reference = predict(boosttreefit, newdata = test_reduced))
+boosttree
+```
+
+
+## Random Forest  
+```{r}
+fitrf <- train(abscissed~.,method = "rf",data = train_reduced,
+             trControl = trcntrl, 
+             metric = "Accuracy",
+             tuneGrid = data.frame(mtry = 5:10))
+```
+
+
+```{r}
+fitrf
+```
+
+### Test Model for Random Forest
+```{r}
+randomforest <- confusionMatrix(data = test_reduced$abscissed, reference = predict(fitrf, newdata = test_reduced))
+randomforest
+```
+
+
+```{r}
+varImp(fitrf)
+
+plot.new()
+plot(varImp(fitrf))
+title(main = "Variable Importance Plot")
+```
+
+
+
+
+## Table of Accuracies  
+
+```{r}
+compare <- as.data.frame(cbind(logFit$overall[1], classtree$overall[1],
+                               boosttree$overall[1],randomforest$overall[1]))
+compare <- rename(compare, LogisticRegression = V1, ClassificationTree = V2, BoostedTrees = V3, RandomForest = V4)
+compare
+```
+
+
