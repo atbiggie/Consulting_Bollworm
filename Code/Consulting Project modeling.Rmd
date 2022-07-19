@@ -234,7 +234,7 @@ title(main = "Variable Importance Plot")
 ## Table of Accuracies  
 
 ```{r}
-compare <- as.data.frame(cbind(logFit$overall[1], classtree$overall[1],
+compare <- as.data.frame(cbind(logFit$overall[1], classtree$overal[1],
                                boosttree$overall[1],randomforest$overall[1]))
 compare <- rename(compare, LogisticRegression = V1, ClassificationTree = V2, BoostedTrees = V3, RandomForest = V4)
 compare
