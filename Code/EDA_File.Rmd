@@ -12,7 +12,7 @@ library(RColorBrewer)
 
 ```{r}
 cleandata <- read.csv("../Data/cleandata.csv", header = TRUE) %>% 
-  mutate(ovaryHolesCount = ifelse(ovaryHolesSize == "0.0",
+  mutate(ovaryHolesCount = ifelse(ovaryHolesSize == "0.0" | ovaryHolesSize == "0",
                                   0,
                                   str_count(ovaryHolesSize, ",") + 1))
 
@@ -23,10 +23,6 @@ cleandata <- read.csv("../Data/cleandata.csv", header = TRUE) %>%
 table(cleandata$year, cleandata$abscissed)
 ```
 
-```{r}
-cleandata <- cleandata %>% drop_na()
-table(cleandata_nona$year, cleandata_nona$abscissed)
-```
 
 
 

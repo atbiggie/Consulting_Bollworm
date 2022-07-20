@@ -9,7 +9,7 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
- Modeling  
+Modeling
 
 ```{r include = FALSE}
 library(tidyverse)
@@ -22,14 +22,10 @@ library(randomForest)
 
 Load training and test data sets.
 
-
 ```{r}
 train <- read.csv("../Data/train.csv", header = TRUE, sep = ",") %>% filter(diameter > 0)
 test <- read.csv("../Data/test.csv", header = TRUE, sep = ",") %>% filter(diameter > 0)
 ```
-
-
-
 
 ## Logistic Regression (without year in model)
 
@@ -54,23 +50,19 @@ summary(fit2)
 Model 3: Significant predictors, interactions, and squared terms
 
 ```{r}
-fit3 <- glm(abscissed ~ year + rep + WRF + GLT + diameter + sepal + bract + bollWall + ovaryHolesCount + ovaryHolesSum + 
-              year:diameter + year:sepal + year:bollWall + year:ovaryHolesCount + year:ovaryHolesSum + 
+fit3 <- glm(abscissed ~ year + WRF + GLT + diameter + sepal + bract + bollWall + ovaryHolesCount + ovaryHolesSum + 
+              year:sepal + year:bollWall + year:ovaryHolesCount + year:ovaryHolesSum + 
               WRF:diameter + 
               GLT:diameter +  
               diameter:bollWall + diameter:ovaryHolesSum + 
-              bract:ovaryHolesCount + 
-              I(rep^2) + I(diameter^2) + I(bract^2) + I(ovaryHolesSum^2),
+              I(diameter^2) + I(ovaryHolesSum^2) + 
+              
+              GLT:bract + WRF:bollWall + GLT:bollWall,
             data = train, family = "binomial")
 summary(fit3)
 ```
 
-
-
-
-
-### Cross Validation  
-
+### Cross Validation
 
 ```{r warning = FALSE}
 train <- train %>% drop_na()
@@ -86,13 +78,14 @@ glmFit2 <- train(abscissed ~ year + WRF + GLT + diameter + bollWall + ovaryHoles
                  method = "glm",
                  family = "binomial",
                  trControl = trainControl(method = "cv", number = 10))
-glmFit3 <- train(abscissed ~ year + rep + WRF + GLT + diameter + sepal + bract + bollWall + ovaryHolesCount + ovaryHolesSum + 
-              year:diameter + year:sepal + year:bollWall + year:ovaryHolesCount + year:ovaryHolesSum + 
+glmFit3 <- train(abscissed ~ year + WRF + GLT + diameter + sepal + bract + bollWall + ovaryHolesCount + ovaryHolesSum + 
+              year:sepal + year:bollWall + year:ovaryHolesCount + year:ovaryHolesSum + 
               WRF:diameter + 
               GLT:diameter +  
               diameter:bollWall + diameter:ovaryHolesSum + 
-              bract:ovaryHolesCount + 
-              I(rep^2) + I(diameter^2) + I(bract^2) + I(ovaryHolesSum^2), 
+              I(diameter^2) + I(ovaryHolesSum^2) + 
+              
+              GLT:bract + WRF:bollWall + GLT:bollWall, 
                  data = train,
                  method = "glm",
                  family = "binomial",
@@ -103,8 +96,6 @@ glmFit3 <- train(abscissed ~ year + rep + WRF + GLT + diameter + sepal + bract +
 data.frame(t(glmFit1$results), t(glmFit2$results), t(glmFit3$results)) %>% 
   rename("Fit1" = "X1", "Fit2" = "X1.1", "Fit3" = "X1.2")
 ```
-
-
 
 ### Test Models
 
@@ -130,19 +121,83 @@ logFit
 
 ### Conclusion:
 
-Model 3 is the best performing model, so we will use it as our choice for Logistic Regression.  
+Model 3 is the best performing model, so we will use it as our choice for Logistic Regression.
 
 ```{r}
 summary(glmFit3)
 ```
 
-## Classification Tree  
+$log(odds) = 221.3 - 0.1112*year + 0.8992*WRF + 0.9566*GLT + 0.4517*diameter$\
+$- 184.6*sepal + 0.01415*bract - 401.5*bollWall - 11290*ovaryHolesCount$\
+$+ 2324*ovaryHolesSum - 0.02235*diameter^2 - 0.1514*ovaryHolesSum^2 + 0.09161*year*sepal$\
+$+ 0.1997*year*bollWall + 5.603*year*ovaryHolesCount - 1.153*year*ovaryHolesSum$\
+$- 0.0708*WRF*diameter - 0.09735*GLT*diameter - 0.03528*diameter*bollWall$\
+$+ 0.03967*diameter*ovaryHolesSum + 0.1451*GLT*bract + 0.1704*WRF*bollWall + 0.26*GLT*bollWall$
+
+$P(Y = 1) = 1/(1+e^{-log(odds)})$
+
+
+```{r}
+newfit <- glm(abscissed ~ sepal + year + year:sepal, data = train2, family = "binomial")
+plot_model(newfit, type = "pred", terms = c("sepal", "year"), title = c("Interaction Plot for Sepal & Year"), axis.title = c("Diameter of Sepal Damage (mm)", "Probability of Abscission"), legend.title = "Year")
+```
+
+```{r}
+newfit <- glm(abscissed ~ bollWall + year + year:bollWall, data = train2, family = "binomial")
+plot_model(newfit, type = "pred", terms = c("bollWall", "year"), title = c("Interaction Plot for bollWall & Year"), axis.title = c("Diameter of Boll Wall Damage (mm)", "Probability of Abscission"), legend.title = "Year")
+```
+
+
+```{r}
+newfit <- glm(abscissed ~ ovaryHolesCount + year + year:ovaryHolesCount, data = train2, family = "binomial")
+plot_model(newfit, type = "pred", terms = c("ovaryHolesCount", "year"), title = c("Interaction Plot for OvaryHolesCount & Year"), axis.title = c("Number of Holes in Ovary", "Probability of Abscission"), legend.title = "Year")
+```
+
+
+```{r}
+newfit <- glm(abscissed ~ ovaryHolesSum + year + year:ovaryHolesSum, data = train2, family = "binomial")
+plot_model(newfit, type = "pred", terms = c("ovaryHolesSum", "year"), title = c("Interaction Plot for ovaryHolesSum & Year"), axis.title = c("Sum of Diameters of Ovary Holes (mm)", "Probability of Abscission"), legend.title = "Year")
+```
+
+
+
+```{r}
+train2 <- train %>% filter(diameter < 100)
+newfit <- glm(abscissed ~ var + diameter + var:diameter, data = train2, family = "binomial")
+library(sjPlot)
+plot_model(newfit, type = "pred", terms = c("diameter", "var"), title = c("Interaction Plot for Diameter & Variety"), axis.title = c("Diameter (mm)", "Probability of Abscission"), legend.title = "Variety")
+```
+
+
+```{r}
+newfit <- glm(abscissed ~ var + bollWall + var:bollWall, data = train2, family = "binomial")
+plot_model(newfit, type = "pred", terms = c("bollWall", "var"), title = c("Interaction Plot for Boll Wall & Variety"), axis.title = c("Diameter of Boll Wall Damage (mm)", "Probability of Abscission"), legend.title = "Variety")
+```
+
+```{r}
+newfit <- glm(abscissed ~ var + bract + var:bract, data = train2, family = "binomial")
+plot_model(newfit, type = "pred", terms = c("bract", "var"), title = c("Interaction Plot for Bract & Variety"), axis.title = c("Diameter of Bract Damage (mm)", "Probability of Abscission"), legend.title = "Variety")
+```
+
+```{r}
+newfit <- glm(abscissed ~ diameter + bollWall + diameter:bollWall, data = train2, family = "binomial")
+plot_model(newfit, type = "pred", terms = c("diameter", "bollWall"), title = c("Interaction Plot for Diameter & Boll Wall"), axis.title = c("Diameter (mm)", "Probability of Abscission"), legend.title = "Diamater of\nBoll Wall\nDamage (mm)")
+```
+
+
+```{r}
+newfit <- glm(abscissed ~ diameter + ovaryHolesSum + diameter:ovaryHolesSum, data = train2, family = "binomial")
+plot_model(newfit, type = "pred", terms = c("diameter", "ovaryHolesSum"), title = c("Interaction Plot for Diameter & Ovary Holes Sum"), axis.title = c("Diameter (mm)", "Probability of Abscission"), legend.title = "Sum of Diameters\nof Ovary Holes (mm)")
+```
+
+
+
+## Classification Tree
 
 ```{r}
 train_reduced <- train[, c(3,6:10,12:17,25)]
 test_reduced <- test[, c(3,6:10,12:17,25)]
 ```
-
 
 ```{r}
 trcntrl <- trainControl(method = "repeatedcv", number = 5, repeats = 3)
@@ -154,26 +209,23 @@ classtree_fit <- train(abscissed ~ ., data = train_reduced,
 classtree_fit
 ```
 
-
-### Test Model  
+### Test Model
 
 ```{r}
 classtree <- confusionMatrix(data = test_reduced$abscissed, reference = predict(classtree_fit, newdata = test_reduced))
 classtree
 ```
 
-### Print Tree  
+### Print Tree
 
 ```{r}
 rpart.plot(classtree_fit$finalModel)
 ```
 
+Note that the labels indicate the proportion of the remaining data that contains the given response, followed by the percentage of data remaining from the overall data set. For example, at the split "bract \< 0.75", the proportion of the data that has not abscised is 0.37. At this point in the tree, we are working with 39% of the data.
 
-Note that the labels indicate the proportion of the remaining data that contains the given response, followed by the percentage of data remaining from the overall data set. For example, at the split "bract < 0.75", the proportion of the data that has not abscised is 0.37. At this point in the tree, we are working with 39% of the data.  
+## Boosted Trees
 
-
-
-## Boosted Trees  
 ```{r}
 trcntrl <- trainControl(method = "repeatedcv", number = 5, repeats = 3)
 boosttreefit <- train(abscissed ~ .,
@@ -199,26 +251,25 @@ boosttree <- confusionMatrix(data = test_reduced$abscissed, reference = predict(
 boosttree
 ```
 
+## Random Forest
 
-## Random Forest  
 ```{r}
 fitrf <- train(abscissed~.,method = "rf",data = train_reduced,
              trControl = trcntrl, 
              metric = "Accuracy",
-             tuneGrid = data.frame(mtry = 5:10))
+             tuneGrid = data.frame(mtry = 1:5))
 ```
-
 
 ```{r}
 fitrf
 ```
 
 ### Test Model for Random Forest
+
 ```{r}
 randomforest <- confusionMatrix(data = test_reduced$abscissed, reference = predict(fitrf, newdata = test_reduced))
 randomforest
 ```
-
 
 ```{r}
 varImp(fitrf)
@@ -228,16 +279,11 @@ plot(varImp(fitrf))
 title(main = "Variable Importance Plot")
 ```
 
-
-
-
-## Table of Accuracies  
+## Table of Accuracies
 
 ```{r}
-compare <- as.data.frame(cbind(logFit$overall[1], classtree$overal[1],
+compare <- as.data.frame(cbind(logFit$overall[1], classtree$overall[1],
                                boosttree$overall[1],randomforest$overall[1]))
 compare <- rename(compare, LogisticRegression = V1, ClassificationTree = V2, BoostedTrees = V3, RandomForest = V4)
-compare
+as_tibble(compare)
 ```
-
-
