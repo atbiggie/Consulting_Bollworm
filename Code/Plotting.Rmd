@@ -1,0 +1,145 @@
+---
+title: "Model Plotting"
+author: "John Hinic"
+date: '2022-07-18'
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(caret)
+library(ggeffects)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+# Plotting
+
+The following logistic model will be used for plotting:
+
+```{r}
+trainPlot <- read_csv('../Data/train.csv') %>%
+  filter(diameter > 0 & diameter < 3000) %>%
+  mutate(var = factor(var, levels = c("RF", "GLT", "WRF", "B2RF")),
+         rep = as.factor(rep),
+         year = as.factor(year),
+         abscissed = as.factor(abscissed))
+
+logPlot <- glm(
+  abscissed ~ rep + var + year + diameter + sepal + bract + bollWall + ovaryParsedCount + ovaryHolesSum + 
+    var:year + var:diameter + var:sepal + var:bract + var:bollWall + 
+    diameter:bract + diameter:bollWall + diameter:ovaryHolesSum + 
+    I(diameter^2) + I(bract^2) + I(bollWall^2) + I(ovaryHolesSum^2),
+  data = trainPlot,
+  family = "binomial"
+)
+summary(logPlot)
+```
+
+
+## Main Effect Plots
+
+```{r}
+# variety
+ggpredict(logPlot, terms = "var") %>% plot() +
+  labs(x = "Variety", y = "Probability of Abscission",
+       title = "Variety Effect")
+
+# year
+ggpredict(logPlot, terms = "year") %>% plot() +
+  labs(x = "Year", y = "Probability of Abscission",
+       title = "Year Effect")
+# diameter
+ggpredict(logPlot, terms = "diameter") %>% plot() +
+  labs(x = "Diameter", y = "Probability of Abscission",
+       title = "Diameter Effect")
+
+# sepal
+ggpredict(logPlot, terms = "sepal") %>% plot(add.data = TRUE) +
+  labs(x = "Sepal", y = "Probability of Abscission",
+       title = "Sepal Effect")
+
+# bract
+ggpredict(logPlot, terms = "bract") %>% plot(add.data = TRUE) +
+  labs(x = "Bract", y = "Probability of Abscission",
+       title = "Bract Effect")
+
+# bollWall
+ggpredict(logPlot, terms = "bollWall") %>% plot(add.data = TRUE) +
+  labs(x = "Boll Wall", y = "Probability of Abscission",
+       title = "Boll Wall Effect")
+
+# ovaryHolesSum
+ggpredict(logPlot, terms = "ovaryHolesSum") %>% plot(add.data = TRUE) +
+  labs(x = "Ovary Holes Sum", y = "Probability of Abscission",
+       title = "Ovary Holes Sum Effect")
+
+# ovaryParsedCount
+ggpredict(logPlot, terms = "ovaryParsedCount") %>% plot() +
+  labs(x = "Num. Ovary Holes", y = "Probability of Abscission",
+       title = "Number of Ovary Holes Effect")
+```
+
+
+## Interaction Plots
+
+### Variety Interactions
+
+```{r}
+# variety by year
+ggpredict(logPlot, c("year", "var")) %>% plot() + 
+  labs(x = "Year", y = "Probability of Abscission", 
+       title = "Predicted Probability of Abscission", subtitle = "Variety by Year", 
+       colour = "Variety")
+
+# variety by diameter
+ggpredict(logPlot, c("diameter", "var")) %>% plot(ci = FALSE) + 
+  labs(x = "Diameter", y = "Probability of Abscission", 
+       title = "Predicted Probability of Abscission", subtitle = "Variety by Diameter", 
+       colour = "Variety")
+
+# variety by sepal
+ggpredict(logPlot, c("sepal", "var")) %>% plot(facet = TRUE, add.data = TRUE) + 
+  labs(x = "Sepal", y = "Probability of Abscission", 
+       title = "Predicted Probability of Abscission", subtitle = "Variety by Sepal", 
+       colour = "Variety")
+
+# variety by bract
+ggpredict(logPlot, c("bract", "var")) %>% plot(facet = TRUE, add.data = TRUE) + 
+  labs(x = "Bract", y = "Probability of Abscission", 
+       title = "Predicted Probability of Abscission", subtitle = "Variety by Bract", 
+       colour = "Variety") #+ scale_x_continuous(limits = c(0, 300))
+
+# variety by bollWall
+ggpredict(logPlot, c("bollWall", "var")) %>% plot(facet = TRUE, add.data = TRUE) +
+  labs(x = "Boll Wall", y = "Probability of Abscission", 
+       title = "Predicted Probability of Abscission", subtitle = "Variety by Boll Wall", 
+       colour = "Variety") #+ scale_x_continuous(limits = c(0, 100))
+
+```
+
+
+### Diameter Interactions
+
+```{r}
+# diameter by bract
+ggpredict(logPlot, c("bract", "diameter [5,15,25,35]")) %>% plot(ci = FALSE, add.data = TRUE) + 
+  labs(x = "Bract", y = "Probability of Abscission", 
+       title = "Predicted Probability of Abscission", subtitle = "Diameter by Bract", 
+       colour = "Diameter")
+
+# diameter by bollWall
+ggpredict(logPlot, c("bollWall", "diameter [5,15,20,25,35]")) %>% plot(add.data = TRUE) + 
+  labs(x = "Boll Wall", y = "Probability of Abscission", 
+       title = "Predicted Probability of Abscission", subtitle = "Diameter by Boll Wall", 
+       colour = "Diameter")
+
+# diameter by ovaryHolesSum
+ggpredict(logPlot, c("ovaryHolesSum", "diameter [5,15,20,25,35]")) %>% plot(ci = FALSE) + 
+  labs(x = "Ovary Holes Sum", y = "Probability of Abscission", 
+       title = "Predicted Probability of Abscission", subtitle = "Diameter by Ovary Holes Sum", 
+       colour = "Diameter") + scale_x_continuous(limits = c(0, 15))
+```
+
+

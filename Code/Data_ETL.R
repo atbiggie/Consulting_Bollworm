@@ -9,17 +9,17 @@ library(readxl)
 library(lubridate)
 
 # reading in raw files
-absc2015_raw <- read_excel("Data/2. Abscission data.xlsx", sheet = 2, range = "A1:N2768", na = ".")
-absc2016_raw <- read_excel("Data/2. Abscission data.xlsx", sheet = 3, range = "A1:P2153")
+absc2015_raw <- read_excel("../Data/2. Abscission data.xlsx", sheet = 2, range = "A1:N2768", na = ".")
+absc2016_raw <- read_excel("../Data/2. Abscission data.xlsx", sheet = 3, range = "A1:P2153")
 
 gdu2015_raw <- read_excel(
-  "Data/3. GDU profiling the tissues in a plants.xlsx",
+  "../Data/3. GDU profiling the tissues in a plants.xlsx",
   sheet = 1,
   range = "A1:Q7845"
 )
 
 gdu2016_raw <- read_excel(
-  "Data/3. GDU profiling the tissues in a plants.xlsx",
+  "../Data/3. GDU profiling the tissues in a plants.xlsx",
   sheet = 3,
   "A1:P2275"
 )
@@ -317,7 +317,7 @@ final %>% filter(diameter < 50 & ovaryHolesSum > 0) %>%
   geom_boxplot()
 
 ## save clean dataset to folder  
-write.csv(final, "Data/cleandata.csv", row.names = FALSE)
+write.csv(final, "../Data/cleandata.csv", row.names = FALSE)
 
 
 
