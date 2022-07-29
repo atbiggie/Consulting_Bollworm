@@ -1,0 +1,349 @@
+---
+title: "Final Models"
+author: "John Hinic"
+date: "2022-07-18"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    theme: readable
+    code_folding: show
+    df_print: tibble
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(caret)
+library(doParallel)
+library(yardstick)
+library(rpart)
+library(rpart.plot)
+library(gbm)
+library(randomForest)
+library(ggeffects)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, error = FALSE)
+```
+
+## Loading Data and Setup
+
+For the datasets, we are excluding the record with a listed diameter of over 3000 and the records with a listed diameter of 0 due to data entry error.
+
+```{r model setup}
+train <- read.csv("../Data/train.csv", header = TRUE) %>% 
+  filter(diameter > 0 & diameter < 3000) %>%
+  mutate(
+    var = factor(var, levels = c('RF', 'B2RF', 'WRF', 'GLT')), 
+    year = as.factor(year), 
+    rep = as.factor(rep), 
+    abscissed = as.factor(abscissed)
+  ) %>%
+  drop_na()
+
+test <- read.csv("../Data/test.csv", header = TRUE) %>% 
+  filter(diameter > 0 & diameter < 3000) %>%
+  mutate(
+    var = factor(var, levels = c('RF', 'B2RF', 'WRF', 'GLT')), 
+    year = as.factor(year), 
+    rep = as.factor(rep), 
+    abscissed = as.factor(abscissed)
+  ) %>%
+  drop_na()
+
+# CV setup
+ctrl <- trainControl(method = "cv", number = 10)
+ctrlML <- trainControl(method = "repeatedcv", number = 5, repeats = 3)
+
+# parallel setup
+cl <- makeCluster(detectCores() - 2)
+registerDoParallel(cl)
+```
+
+## Logistic Models
+
+All logistic regression models will include at least the following predictors:
+
+- `rep` (factor)
+- `var` (factor)
+- `year` (factor)
+- `diameter`
+- `sepal`
+- `bract`
+- `bollWall`
+- `ovaryHolesCount`
+- `ovaryHolesSum`
+
+The differences between logistic models will be based on which higher-order and interaction terms are considered - once the model is selected, then check if `rep` should stay in the model or not based on CV performance.
+
+```{r}
+trainLog <- train %>%
+  select(abscissed, rep, var, year, diameter:bollWall, ovaryHolesSum, ovaryHolesCount)
+```
+
+### Logistic Model 1
+
+All first-order predictors with no interactions or higher-order terms
+
+```{r}
+set.seed(1462)
+log1 <- train(
+  abscissed ~ .,
+  data = trainLog,
+  method = "glm",
+  family = "binomial",
+  trControl = ctrl
+)
+summary(log1)
+log1$results
+```
+
+### Logistic Model 2
+
+All first-order terms + interaction terms between variety, diameter, year, and different damage types.
+
+```{r}
+set.seed(1621)
+log2 <- train(
+  abscissed ~ rep + var + diameter + year + sepal + bract + bollWall + ovaryHolesCount + ovaryHolesSum + 
+    var:year + var:diameter + var:sepal + var:bract + var:bollWall + var:ovaryHolesCount + var:ovaryHolesSum + 
+    diameter:year + diameter:sepal + diameter:bract + diameter:bollWall + diameter:ovaryHolesCount + diameter:ovaryHolesSum +
+    year:sepal + year:bract + year:bollWall + year:ovaryHolesCount + year:ovaryHolesSum,
+  data = trainLog,
+  method = "glm",
+  family = "binomial",
+  trControl = ctrl
+)
+summary(log2)
+log2$results
+```
+
+### Logistic Model 3
+
+Removing insignificant interactions from model 2 (var:ovaryHolesCount, diameter:ovaryHolesSum, year:bollWall) and added quadratic terms for diameter and different damage types:
+
+```{r}
+set.seed(69714)
+log3 <- train(
+  abscissed ~ rep + var + diameter + year + sepal + bract + bollWall + ovaryHolesCount + ovaryHolesSum + 
+    var:year + var:diameter + var:sepal + var:bract + var:bollWall + var:ovaryHolesSum + 
+    diameter:year + diameter:sepal + diameter:bract + diameter:bollWall + diameter:ovaryHolesCount + 
+    year:sepal + year:bract + year:ovaryHolesCount + year:ovaryHolesSum + 
+    I(diameter^2) + I(sepal^2) + I(bract^2) + I(bollWall^2) + I(ovaryHolesCount^2) + I(ovaryHolesSum^2),
+  data = trainLog,
+  method = "glm",
+  family = "binomial",
+  trControl = ctrl
+)
+summary(log3)
+log3$results
+```
+
+### Logistic Model 4
+
+Removing insignificant interactions (diameter:sepal) and quadratic terms (sepal^2) from model 3 (using $\alpha = 0.1$). Although var:ovaryHolesSum is insignificant, it is a big part of the research question so it is left in:
+
+```{r}
+set.seed(29681)
+log4 <- train(
+  abscissed ~ rep + var + diameter + year + sepal + bract + bollWall + ovaryHolesCount + ovaryHolesSum + 
+    var:year + var:diameter + var:sepal + var:bract + var:bollWall + var:ovaryHolesSum + 
+    diameter:year + diameter:bract + diameter:bollWall + diameter:ovaryHolesCount + 
+    year:sepal + year:bract + year:ovaryHolesCount + year:ovaryHolesSum + 
+    I(diameter^2) + I(bract^2) + I(bollWall^2) + I(ovaryHolesCount^2) + I(ovaryHolesSum^2),
+  data = trainLog,
+  method = "glm",
+  family = "binomial",
+  trControl = ctrl
+)
+summary(log4)
+log4$results
+```
+
+### Logistic Model 5
+
+Removing insignificant interactions (diameter:year, diameter:bract) from model 4 (using $\alpha = 0.05$).
+
+Both terms being removed were significant at the $\alpha = 0.1$ level, so model 4 or model 5 will be the final logistic model based on cross validation performance.
+
+```{r}
+set.seed(985214)
+log5 <- train(
+  abscissed ~ rep + var + diameter + year + sepal + bract + bollWall + ovaryHolesCount + ovaryHolesSum + 
+    var:year + var:diameter + var:sepal + var:bract + var:bollWall + var:ovaryHolesSum + 
+    diameter:bollWall + diameter:ovaryHolesCount + 
+    year:sepal + year:bract + year:ovaryHolesCount + year:ovaryHolesSum + 
+    I(diameter^2) + I(bract^2) + I(bollWall^2) + I(ovaryHolesCount^2) + I(ovaryHolesSum^2),
+  data = trainLog,
+  method = "glm",
+  family = "binomial",
+  trControl = ctrl
+)
+summary(log5)
+log5$results
+```
+
+### Logistic Model Comparisons
+
+Now, we will compare the performance of all the candidate logistic models. First, we will use the 10-fold cross-validation results, then we will compare the results on the test set.
+
+```{r}
+getFits <- function(modelsList) {
+  comps <- data.frame(
+    Model = character(), Accuracy = double(), Kappa = double(), AccuracySD = double(), KappaSD = double()
+  )
+  for(i in 1:length(modelsList)) {
+    comps[i, 2:5] <- modelsList[[i]]$results[, -1]
+    comps$Model[i] <- paste0('Logistic ', i)
+  }
+  return(comps)
+}
+
+allGLM <- list(log1, log2, log3, log4, log5)
+
+logFits <- getFits(allGLM)
+print(logFits, digits = 4)
+```
+
+### Logistic Model 6
+
+Now check if the `rep` (blocking) variable is aiding performance or not
+
+```{r}
+set.seed(752918)
+log6 <- train(
+  abscissed ~ var + diameter + year + sepal + bract + bollWall + ovaryHolesCount + ovaryHolesSum + 
+    var:year + var:diameter + var:sepal + var:bract + var:bollWall + var:ovaryHolesSum + 
+    diameter:bollWall + diameter:ovaryHolesCount + 
+    year:sepal + year:bract + year:ovaryHolesCount + year:ovaryHolesSum + 
+    I(diameter^2) + I(bract^2) + I(bollWall^2) + I(ovaryHolesCount^2) + I(ovaryHolesSum^2),
+  data = trainLog,
+  method = "glm",
+  family = "binomial",
+  trControl = ctrl
+)
+summary(log6)
+log6$results
+```
+
+### Final Logistic Model
+
+```{r}
+logFinal <- log6
+summary(logFinal)
+logCoefs <- round(coef(logFinal$finalModel), 4)
+for(i in 1:length(logCoefs)) {
+  print(paste0(names(logCoefs)[i], ': ', logCoefs[i]))
+}
+```
+
+
+
+
+
+## Ensemble Methods
+
+```{r}
+trainML <- train[, c(3,6:10,12:17,25)]
+#train_reduced <- train[, c(3,6:10,12:17,25)]
+```
+
+
+### Classification Tree
+
+```{r}
+set.seed(208732)
+classTree <- train(
+  abscissed ~ ., 
+  data = trainML,
+  method = "rpart",
+  trControl = ctrlML,
+  tuneGrid = data.frame(cp = seq(from = 0, to = 0.1, by = 0.001))
+)
+classTree
+rpart.plot(classTree$finalModel)
+```
+
+
+### Boosted Tree
+
+```{r}
+boostTune <- expand.grid(
+  n.trees = 25,
+  shrinkage = 0.1,
+  interaction.depth = c(12:20),
+  n.minobsinnode = 10
+)
+
+set.seed(37684)
+boostTree <- train(
+  abscissed ~ .,
+  data = trainML,
+  method = "gbm",
+  trControl = ctrlML,
+  metric = "Accuracy",
+  preProcess = c("center", "scale"),
+  verbose = FALSE,
+  tuneGrid = boostTune
+)
+boostTree
+plot(varImp(boostTree))
+```
+
+
+### Random Forest
+
+```{r}
+set.seed(524682)
+rf <- train(
+  abscissed ~ .,
+  data = trainML,
+  method = "rf",
+  trControl = ctrlML,
+  tuneGrid = data.frame(mtry = c(1:5)),
+  preProcess = c("center", "scale")
+)
+rf
+plot(varImp(rf))
+```
+
+## Final Comparisons
+
+Run this chunk to get a confusion matrix + list of accuracies for all 4 final models.
+
+```{r}
+testFits <- function(modelsList, confMat = FALSE) {
+  evals <- data.frame(
+    Model = character(), Accuracy = double(), Kappa = double()
+  )
+  for(i in 1:length(modelsList)) {
+    pred <- modelsList[[i]] %>%
+      predict(newdata = test)
+    if(confMat) {
+      print(paste0("Confusion matrix for ", names(modelsList[i]), ":"))
+      print(confusionMatrix(pred, reference = test$abscissed))
+      print("---------------------------------------------------")
+    }
+    evals[i, 2:3] <- pred %>%
+      postResample(obs = test$abscissed)
+    evals$Model[i] <- names(modelsList[i])
+  }
+  return(evals)
+}
+
+finalTests <- testFits(
+  list(
+    Logistic = logFinal, 
+    "Single Tree" = classTree, 
+    "Boosted Tree" = boostTree, 
+    "Random Forest" = rf), 
+  confMat = T
+)
+print(finalTests, digits = 4)
+```
+
+
+
+```{r}
+stopCluster(cl)
+```
