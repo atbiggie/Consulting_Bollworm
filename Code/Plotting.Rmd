@@ -62,7 +62,7 @@ varCI <- varPlot %>%
   ggeffect(terms = "var") %>% plot() +
   labs(
     x = "Variety", 
-    y = "Proportion Abscissed", 
+    y = "Proportion Abscised", 
     title = "",
   ) + theme_bw()
 ggsave("../plots/var_basic_summary.png", plot = varCI, width = 8, height = 6)
@@ -158,6 +158,10 @@ diam_ovary <- ggeffect(logPlot, c("diameter [all]", "ovaryHolesCount[0,2,4]")) %
 
 diam_ints <- arrangeGrob(diam_boll, diam_ovary)
 ggsave("../plots/diam_grid.png", diam_ints, width = 12, height = 9)
+
+
+# alt mapping for diameter interactions
+diam_boll_alt
 ```
 
 ### Year Interactions
