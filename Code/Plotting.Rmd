@@ -2,6 +2,11 @@
 title: "Model Plotting"
 author: "John Hinic"
 date: '2022-07-18'
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    theme: readable
 editor_options: 
   chunk_output_type: console
 ---
@@ -9,78 +14,84 @@ editor_options:
 
 ```{r setup, include=FALSE}
 library(tidyverse)
-library(caret)
 library(ggeffects)
+library(gridExtra)
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
 ```
-
-# Plotting
 
 The following logistic model will be used for plotting:
 
 ```{r}
 trainPlot <- read_csv('../Data/train.csv') %>%
   filter(diameter > 0 & diameter < 3000) %>%
-  mutate(var = factor(var, levels = c("RF", "GLT", "WRF", "B2RF")),
-         rep = as.factor(rep),
-         year = as.factor(year),
-         abscissed = as.factor(abscissed))
+  mutate(
+    var = factor(var, levels = c('RF', 'B2RF', 'WRF', 'GLT')), 
+    year = as.factor(year), 
+    rep = as.factor(rep), 
+    abscissed = as.factor(abscissed)
+  ) %>%
+  drop_na()
 
 logPlot <- glm(
-  abscissed ~ rep + var + year + diameter + sepal + bract + bollWall + ovaryParsedCount + ovaryHolesSum + 
-    var:year + var:diameter + var:sepal + var:bract + var:bollWall + 
-    diameter:bract + diameter:bollWall + diameter:ovaryHolesSum + 
-    I(diameter^2) + I(bract^2) + I(bollWall^2) + I(ovaryHolesSum^2),
+  abscissed ~ var + diameter + year + sepal + bract + bollWall + ovaryHolesCount + ovaryHolesSum + 
+    var:year + var:diameter + var:sepal + var:bract + var:bollWall + var:ovaryHolesSum + 
+    diameter:bollWall + diameter:ovaryHolesCount + 
+    year:sepal + year:bract + year:ovaryHolesCount + year:ovaryHolesSum + 
+    I(diameter^2) + I(bract^2) + I(bollWall^2) + I(ovaryHolesCount^2) + I(ovaryHolesSum^2),
   data = trainPlot,
   family = "binomial"
 )
+
 summary(logPlot)
 ```
 
 
-## Main Effect Plots
+## Basic Summary Plots
+
+These plots are basically just summaries, looking at the sample proportions for each variety and the damage types by each variety - they are NOT based on the final logistic model
 
 ```{r}
-# variety
-ggpredict(logPlot, terms = "var") %>% plot() +
-  labs(x = "Variety", y = "Probability of Abscission",
-       title = "Variety Effect")
+# abscission by variety
+varPlot <- glm(
+  abscissed ~ var,
+  data = trainPlot,
+  family = "binomial"
+)
 
-# year
-ggpredict(logPlot, terms = "year") %>% plot() +
-  labs(x = "Year", y = "Probability of Abscission",
-       title = "Year Effect")
-# diameter
-ggpredict(logPlot, terms = "diameter") %>% plot() +
-  labs(x = "Diameter", y = "Probability of Abscission",
-       title = "Diameter Effect")
+varCI <- varPlot %>% 
+  ggeffect(terms = "var") %>% plot() +
+  labs(
+    x = "Variety", 
+    y = "Proportion Abscissed", 
+    title = "",
+  ) + theme_bw()
+ggsave("../plots/var_basic_summary.png", plot = varCI, width = 8, height = 6)
 
-# sepal
-ggpredict(logPlot, terms = "sepal") %>% plot(add.data = TRUE) +
-  labs(x = "Sepal", y = "Probability of Abscission",
-       title = "Sepal Effect")
 
-# bract
-ggpredict(logPlot, terms = "bract") %>% plot(add.data = TRUE) +
-  labs(x = "Bract", y = "Probability of Abscission",
-       title = "Bract Effect")
+# damage levels by variety
+p1 <- lm(bract ~ var, data = trainPlot) %>% 
+  ggeffect(terms = "var") %>% plot() +
+  labs(y = "Bract", x = "Variety", title='Bract Damage') +
+  theme_bw()
 
-# bollWall
-ggpredict(logPlot, terms = "bollWall") %>% plot(add.data = TRUE) +
-  labs(x = "Boll Wall", y = "Probability of Abscission",
-       title = "Boll Wall Effect")
+p2 <- lm(sepal ~ var, data = trainPlot) %>% 
+  ggeffect(terms = "var") %>% plot() +
+  labs(y = "Sepal", x = "Variety", title='Sepal Damage') +
+  theme_bw()
 
-# ovaryHolesSum
-ggpredict(logPlot, terms = "ovaryHolesSum") %>% plot(add.data = TRUE) +
-  labs(x = "Ovary Holes Sum", y = "Probability of Abscission",
-       title = "Ovary Holes Sum Effect")
+p3 <- lm(bollWall ~ var, data = trainPlot) %>% 
+  ggeffect(terms = "var") %>% plot() +
+  labs(y = "Boll Wall", x = "Variety", title='Boll Wall Damage') +
+  theme_bw()
 
-# ovaryParsedCount
-ggpredict(logPlot, terms = "ovaryParsedCount") %>% plot() +
-  labs(x = "Num. Ovary Holes", y = "Probability of Abscission",
-       title = "Number of Ovary Holes Effect")
+p4 <- lm(ovaryHolesSum ~ var, data = trainPlot) %>% 
+  ggeffect(terms = "var") %>% plot() +
+  labs(y = "Ovary Holes Sum", x = "Variety", title='Sum of Ovary Holes Damage') +
+  theme_bw()
+
+g <- arrangeGrob(p1, p2, p3, p4)
+ggsave("../plots/var_dmg_summary.png", g, width = 12, height = 9)
 ```
-
 
 ## Interaction Plots
 
@@ -88,58 +99,101 @@ ggpredict(logPlot, terms = "ovaryParsedCount") %>% plot() +
 
 ```{r}
 # variety by year
-ggpredict(logPlot, c("year", "var")) %>% plot() + 
-  labs(x = "Year", y = "Probability of Abscission", 
-       title = "Predicted Probability of Abscission", subtitle = "Variety by Year", 
-       colour = "Variety")
+var_year <- ggeffect(logPlot, c("year", "var")) %>% plot() +
+  labs(x = "Year", y = "Predicted Probability of Abscission", 
+       colour = "Variety", title = '') +
+  theme_bw()
+ggsave("../plots/var_year.png", var_year, width = 8, height = 6)
 
 # variety by diameter
-ggpredict(logPlot, c("diameter", "var")) %>% plot(ci = FALSE) + 
-  labs(x = "Diameter", y = "Probability of Abscission", 
-       title = "Predicted Probability of Abscission", subtitle = "Variety by Diameter", 
-       colour = "Variety")
+var_diam <- ggeffect(logPlot, c("diameter [all]", "var")) %>% plot(add.data = TRUE) +
+  labs(x = "Diameter", y = "Predicted Probability of Abscission", 
+       colour = "Variety", title = '') +
+  theme_bw()
+ggsave('../plots/var_diam.png', var_diam, width = 8, height = 6)
 
 # variety by sepal
-ggpredict(logPlot, c("sepal", "var")) %>% plot(facet = TRUE, add.data = TRUE) + 
-  labs(x = "Sepal", y = "Probability of Abscission", 
-       title = "Predicted Probability of Abscission", subtitle = "Variety by Sepal", 
-       colour = "Variety")
+var_sepal <- ggeffect(logPlot, c("sepal [all]", "var")) %>% plot(add.data = TRUE) +
+  labs(x = "Sepal", y = "Predicted Probability of Abscission", 
+       colour = "Variety", title = 'Sepal') +
+  theme_bw()
 
 # variety by bract
-ggpredict(logPlot, c("bract", "var")) %>% plot(facet = TRUE, add.data = TRUE) + 
-  labs(x = "Bract", y = "Probability of Abscission", 
-       title = "Predicted Probability of Abscission", subtitle = "Variety by Bract", 
-       colour = "Variety") #+ scale_x_continuous(limits = c(0, 300))
+var_bract <- ggeffect(logPlot, c("bract [all]", "var")) %>% plot(add.data = TRUE) +
+  labs(x = "Bract", y = "Predicted Probability of Abscission", 
+       colour = "Variety", title = 'Bract') +
+  theme_bw()
 
 # variety by bollWall
-ggpredict(logPlot, c("bollWall", "var")) %>% plot(facet = TRUE, add.data = TRUE) +
-  labs(x = "Boll Wall", y = "Probability of Abscission", 
-       title = "Predicted Probability of Abscission", subtitle = "Variety by Boll Wall", 
-       colour = "Variety") #+ scale_x_continuous(limits = c(0, 100))
+var_boll <- ggeffect(logPlot, c("bollWall [all]", "var")) %>% plot(add.data = TRUE) +
+  labs(x = "Boll Wall (truncated)", y = "Predicted Probability of Abscission", 
+       colour = "Variety", title = 'Boll Wall') +
+  scale_x_continuous(limits = c(0, 100)) +
+  theme_bw()
 
+# variety by ovaryHolesSum
+var_ovary <- ggeffect(logPlot, c("ovaryHolesSum [all]", "var")) %>% plot(add.data = TRUE) +
+  labs(x = "Sum of Ovary Holes", y = "Predicted Probability of Abscission", 
+       colour = "Variety", title = 'Sum of Ovary Holes') +
+  theme_bw()
+
+var_ints <- arrangeGrob(var_sepal, var_bract, var_boll, var_ovary)
+ggsave("../plots/var_grid.png", var_ints, width = 12, height = 9)
 ```
-
 
 ### Diameter Interactions
 
 ```{r}
-# diameter by bract
-ggpredict(logPlot, c("bract", "diameter [5,15,25,35]")) %>% plot(ci = FALSE, add.data = TRUE) + 
-  labs(x = "Bract", y = "Probability of Abscission", 
-       title = "Predicted Probability of Abscission", subtitle = "Diameter by Bract", 
-       colour = "Diameter")
-
 # diameter by bollWall
-ggpredict(logPlot, c("bollWall", "diameter [5,15,20,25,35]")) %>% plot(add.data = TRUE) + 
-  labs(x = "Boll Wall", y = "Probability of Abscission", 
-       title = "Predicted Probability of Abscission", subtitle = "Diameter by Boll Wall", 
-       colour = "Diameter")
+diam_boll <- ggeffect(logPlot, c("diameter [all]", "bollWall [0,5,10]")) %>% plot(add.data = TRUE) +
+  labs(x = "Diameter", y = "Predicted Probability of Abscission", 
+       colour = "Boll Wall Damage", title = 'Boll Wall') +
+  theme_bw()
 
-# diameter by ovaryHolesSum
-ggpredict(logPlot, c("ovaryHolesSum", "diameter [5,15,20,25,35]")) %>% plot(ci = FALSE) + 
-  labs(x = "Ovary Holes Sum", y = "Probability of Abscission", 
-       title = "Predicted Probability of Abscission", subtitle = "Diameter by Ovary Holes Sum", 
-       colour = "Diameter") + scale_x_continuous(limits = c(0, 15))
+# diameter by ovaryHolesCount
+diam_ovary <- ggeffect(logPlot, c("diameter [all]", "ovaryHolesCount[0,2,4]")) %>% plot(add.data = TRUE) +
+  labs(x = "Diameter", y = "Predicted Probability of Abscission", 
+       colour = "Num. Ovary Holes", title = 'Num. Ovary Holes') +
+  theme_bw()
+
+diam_ints <- arrangeGrob(diam_boll, diam_ovary)
+ggsave("../plots/diam_grid.png", diam_ints, width = 12, height = 9)
 ```
 
+### Year Interactions
 
+```{r}
+# year by sepal
+year_sepal <- ggeffect(logPlot, c("sepal [all]", "year")) %>% plot(add.data = TRUE) +
+  labs(x = "Sepal", y = "Predicted Probability of Abscission",
+       colour = "Year", title = 'Sepal') +
+  theme_bw()
+
+# year by bollWall
+# NOT SIGNIFICANT
+year_boll <- ggeffect(logPlot, c("bollWall [all]", "year")) %>% plot(add.data = TRUE) +
+  labs(x = "Boll Wall", y = "Predicted Probability of Abscission",
+       colour = "Year", title = 'Boll Wall') +
+  theme_bw()
+
+# year by bract
+year_bract <- ggeffect(logPlot, c("bract [all]", "year")) %>% plot(add.data = TRUE) +
+  labs(x = "Bract", y = "Predicted Probability of Abscission",
+       colour = "Year", title = 'Bract') +
+  theme_bw()
+
+# year by ovaryHolesSum
+year_ovarySum <- ggeffect(logPlot, c("ovaryHolesSum [all]", "year")) %>% plot(add.data = TRUE) +
+  labs(x = "Sum of Ovary Holes", y = "Predicted Probability of Abscission",
+       colour = "Year", title = 'Sum of Ovary Holes') +
+  theme_bw()
+
+# year by ovaryHolesCount
+year_ovaryCount <- ggeffect(logPlot, c("ovaryHolesCount [all]", "year")) %>% plot() +
+  labs(x = "Num. Ovary Holes", y = "Predicted Probability of Abscission",
+       colour = "Year", title = 'Num. Ovary Holes') +
+  theme_bw()
+
+year_ints <- arrangeGrob(year_sepal, year_bract, year_ovarySum, year_ovaryCount)
+ggsave("../plots/year_grid.png", year_ints, width = 12, height = 9)
+```
