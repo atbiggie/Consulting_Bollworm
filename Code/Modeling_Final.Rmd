@@ -237,9 +237,17 @@ for(i in 1:length(logCoefs)) {
 }
 ```
 
-
-
-
+\begin{align*}
+log&(odds) = -2.8209 + 0.4354 \cdot diameter - 0.2711 \cdot year2016 + 0.0193 \cdot sepal + 0.0403 \cdot bract + 1.0399 \cdot bollWall \\
+          & + 0.9811 \cdot ovaryHolesCount + 0.9721 \cdot ovaryHolesSum - 0.0211 \cdot diameter^2 - 0.0007 \cdot bract^2 + 0.0034 \cdot bollWall^2 \\
+          & - 0.4517 \cdot ovaryHolesCount^2 - 0.0998 \cdot ovaryHolesSum^2 - 0.0498 \cdot diameter \cdot bollWall + 0.0751 \cdot diameter \cdot ovaryHolesCount \\
+          & + year2016 \cdot (0.0865 \cdot sepal + 0.0847 \cdot bract + 6.0884 \cdot ovaryHolesCount - 1.4006 \cdot ovaryHolesSum)  \\
+          & + B2RF \cdot (0.1366 + 0.3102 \cdot year2016 - 0.015 \cdot diameter - 0.0751 \cdot sepal + 0.1627 \cdot bract + 0.2772 \cdot bollWall - 0.12 \cdot ovaryHolesSum) \\ 
+          & + WRF \cdot (0.9447 + 0.299 \cdot year2016 - 0.0844 \cdot diameter + 0.0277 \cdot sepal + 0.021 \cdot bract + 0.3838 \cdot bollWall + 0.1724 \cdot ovaryHolesSum) \\ 
+          & + GLT \cdot (1.4268 - 0.5577 \cdot year2016 - 0.1257 \cdot diameter + 0.036 \cdot sepal + 0.1449 \cdot bract + 0.6096 \cdot bollWall - 0.0498 \cdot ovaryHolesSum) \\
+& \\
+P(Y&= 1) = 1/(1+e^{-log(odds)})
+\end{align*}
 
 ## Ensemble Methods
 

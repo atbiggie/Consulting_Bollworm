@@ -14,6 +14,13 @@ editor_options:
 
 ```{r setup, include=FALSE}
 library(tidyverse)
+library(caret)
+library(doParallel)
+library(yardstick)
+library(rpart)
+library(rpart.plot)
+library(gbm)
+library(randomForest)
 library(ggeffects)
 library(gridExtra)
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
@@ -114,54 +121,61 @@ ggsave('../plots/var_diam.png', var_diam, width = 8, height = 6)
 
 # variety by sepal
 var_sepal <- ggeffect(logPlot, c("sepal [all]", "var")) %>% plot(add.data = TRUE) +
-  labs(x = "Sepal", y = "Predicted Probability of Abscission", 
+  labs(x = "Sepal", y = "Predicted Prob. of Abscission", 
        colour = "Variety", title = 'Sepal') +
   theme_bw()
 
 # variety by bract
 var_bract <- ggeffect(logPlot, c("bract [all]", "var")) %>% plot(add.data = TRUE) +
-  labs(x = "Bract", y = "Predicted Probability of Abscission", 
+  labs(x = "Bract", y = "Predicted Prob. of Abscission", 
        colour = "Variety", title = 'Bract') +
   theme_bw()
 
 # variety by bollWall
 var_boll <- ggeffect(logPlot, c("bollWall [all]", "var")) %>% plot(add.data = TRUE) +
-  labs(x = "Boll Wall (truncated)", y = "Predicted Probability of Abscission", 
+  labs(x = "Boll Wall (truncated)", y = "Predicted Prob. of Abscission", 
        colour = "Variety", title = 'Boll Wall') +
   scale_x_continuous(limits = c(0, 100)) +
   theme_bw()
 
 # variety by ovaryHolesSum
 var_ovary <- ggeffect(logPlot, c("ovaryHolesSum [all]", "var")) %>% plot(add.data = TRUE) +
-  labs(x = "Sum of Ovary Holes", y = "Predicted Probability of Abscission", 
+  labs(x = "Sum of Ovary Holes", y = "Predicted Prob. of Abscission", 
        colour = "Variety", title = 'Sum of Ovary Holes') +
   theme_bw()
 
 var_ints <- arrangeGrob(var_sepal, var_bract, var_boll, var_ovary)
-ggsave("../plots/var_grid.png", var_ints, width = 12, height = 9)
+ggsave("../plots/var_grid.png", var_ints, width = 8, height = 6)
 ```
 
 ### Diameter Interactions
 
 ```{r}
 # diameter by bollWall
-diam_boll <- ggeffect(logPlot, c("diameter [all]", "bollWall [0,5,10]")) %>% plot(add.data = TRUE) +
-  labs(x = "Diameter", y = "Predicted Probability of Abscission", 
+diam_boll <- ggeffect(logPlot, c("diameter [all]", "bollWall [0,5,10,50,100]")) %>% plot(add.data = TRUE) +
+  labs(x = "Diameter", y = "Predicted Prob. of Abscission", 
        colour = "Boll Wall Damage", title = 'Boll Wall') +
   theme_bw()
 
 # diameter by ovaryHolesCount
 diam_ovary <- ggeffect(logPlot, c("diameter [all]", "ovaryHolesCount[0,2,4]")) %>% plot(add.data = TRUE) +
-  labs(x = "Diameter", y = "Predicted Probability of Abscission", 
-       colour = "Num. Ovary Holes", title = 'Num. Ovary Holes') +
+  labs(x = "Diameter", y = "Predicted Prob. of Abscission", 
+       colour = "Num. Ovary\nHoles", title = 'Num. Ovary Holes') +
   theme_bw()
 
 diam_ints <- arrangeGrob(diam_boll, diam_ovary)
-ggsave("../plots/diam_grid.png", diam_ints, width = 12, height = 9)
+ggsave("../plots/diam_grid.png", diam_ints, width = 8, height = 6)
 
 
 # alt mapping for diameter interactions
-diam_boll_alt
+# diameter by bollWall
+diam_boll_alt <- ggeffect(logPlot, c("bollWall [all]", "diameter [5,15,25,35]")) %>% plot(add.data = TRUE) +
+  labs(x = "Boll Wall Damage", y = "Predicted Prob. of Abscission", 
+       colour = "Diameter", title = 'Boll Wall') +
+  theme_bw()
+
+diam_ints_alt <- arrangeGrob(diam_boll_alt, diam_ovary)
+ggsave("../plots/diam_grid_alt.png", diam_ints_alt, width = 8, height = 6)
 ```
 
 ### Year Interactions
@@ -169,35 +183,64 @@ diam_boll_alt
 ```{r}
 # year by sepal
 year_sepal <- ggeffect(logPlot, c("sepal [all]", "year")) %>% plot(add.data = TRUE) +
-  labs(x = "Sepal", y = "Predicted Probability of Abscission",
+  labs(x = "Sepal", y = "Predicted Prob. of Abscission",
        colour = "Year", title = 'Sepal') +
   theme_bw()
 
 # year by bollWall
 # NOT SIGNIFICANT
 year_boll <- ggeffect(logPlot, c("bollWall [all]", "year")) %>% plot(add.data = TRUE) +
-  labs(x = "Boll Wall", y = "Predicted Probability of Abscission",
+  labs(x = "Boll Wall", y = "Predicted Prob. of Abscission",
        colour = "Year", title = 'Boll Wall') +
   theme_bw()
 
 # year by bract
 year_bract <- ggeffect(logPlot, c("bract [all]", "year")) %>% plot(add.data = TRUE) +
-  labs(x = "Bract", y = "Predicted Probability of Abscission",
+  labs(x = "Bract", y = "Predicted Prob. of Abscission",
        colour = "Year", title = 'Bract') +
   theme_bw()
 
 # year by ovaryHolesSum
 year_ovarySum <- ggeffect(logPlot, c("ovaryHolesSum [all]", "year")) %>% plot(add.data = TRUE) +
-  labs(x = "Sum of Ovary Holes", y = "Predicted Probability of Abscission",
+  labs(x = "Sum of Ovary Holes", y = "Predicted Prob. of Abscission",
        colour = "Year", title = 'Sum of Ovary Holes') +
   theme_bw()
 
 # year by ovaryHolesCount
 year_ovaryCount <- ggeffect(logPlot, c("ovaryHolesCount [all]", "year")) %>% plot() +
-  labs(x = "Num. Ovary Holes", y = "Predicted Probability of Abscission",
+  labs(x = "Num. Ovary Holes", y = "Predicted Prob. of Abscission",
        colour = "Year", title = 'Num. Ovary Holes') +
   theme_bw()
 
 year_ints <- arrangeGrob(year_sepal, year_bract, year_ovarySum, year_ovaryCount)
-ggsave("../plots/year_grid.png", year_ints, width = 12, height = 9)
+ggsave("../plots/year_grid.png", year_ints, width = 8, height = 6)
+```
+
+
+## Model Metrics
+
+(make sure the models from `Modeling_Final.Rmd` have already been run and are loaded in environment)
+
+### Decision Tree
+
+```{r}
+png('../Plots/classTree_plot.png', width = 16, height = 8, res = 96, units = "in")
+rpart.plot(classTree$finalModel)
+dev.off()
+```
+
+### Random Forest
+
+```{r}
+png('../Plots/RF_var_imp.png', width = 8, height = 6, res = 96, units = "in")
+plot(varImp(rf))
+dev.off()
+```
+
+### Boosted Trees
+
+```{r}
+png('../Plots/boost_var_imp.png', width = 8, height = 6, res = 96, units = "in")
+plot(varImp(boostTree))
+dev.off()
 ```
